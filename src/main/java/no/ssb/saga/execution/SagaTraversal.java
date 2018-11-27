@@ -104,10 +104,10 @@ public class SagaTraversal {
                         );
                     } catch (Throwable t) {
                         if (handoffFuture != null) {
-                            handoffFuture.executionException(t);
+                            handoffFuture.completeExceptionally(t);
                         }
                         if (completionFuture != null) {
-                            completionFuture.executionException(t);
+                            completionFuture.completeExceptionally(t);
                         }
                         throw Utils.launder(t);
                     }
@@ -193,7 +193,7 @@ public class SagaTraversal {
             selectableFuture.run();
             futureResult.complete(selectableFuture);
         } catch (Throwable t) {
-            futureResult.executionException(t);
+            futureResult.completeExceptionally(t);
             throw Utils.launder(t);
         }
 
@@ -225,10 +225,10 @@ public class SagaTraversal {
                     return traverse(pendingWalks, futureThreadWalk, new ArrayList<>(), forward, child, childAncestors, visitedById, futureById, handoffFuture, completionFuture, visit);
                 } catch (Throwable t) {
                     if (handoffFuture != null) {
-                        handoffFuture.executionException(t);
+                        handoffFuture.completeExceptionally(t);
                     }
                     if (completionFuture != null) {
-                        completionFuture.executionException(t);
+                        completionFuture.completeExceptionally(t);
                     }
                     throw Utils.launder(t);
                 }

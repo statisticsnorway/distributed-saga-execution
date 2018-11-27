@@ -2,7 +2,6 @@ package no.ssb.saga.execution;
 
 import no.ssb.concurrent.futureselector.SelectableFuture;
 import no.ssb.concurrent.futureselector.SelectableThreadPoolExectutor;
-import no.ssb.concurrent.futureselector.SimpleFuture;
 import no.ssb.saga.api.Saga;
 import no.ssb.saga.api.SagaNode;
 import no.ssb.saga.execution.adapter.AbortSagaException;
@@ -16,6 +15,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -68,7 +68,7 @@ public class SagaExecution {
         SelectableFuture<SagaHandoffResult> handoffFuture = new SelectableFuture<>(null);
         SelectableFuture<SagaHandoffResult> completionFuture = new SelectableFuture<>(null);
         SagaTraversal sagaTraversal = new SagaTraversal(executorService, saga);
-        SimpleFuture<SagaTraversalResult> futureTraversalResult = new SimpleFuture<>();
+        CompletableFuture<SagaTraversalResult> futureTraversalResult = new CompletableFuture<>();
         Map<String, List<SagaLogEntry>> recoverySagaLogEntriesBySagaNodeId;
         if (recovery) {
             recoverySagaLogEntriesBySagaNodeId = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(executionId);
