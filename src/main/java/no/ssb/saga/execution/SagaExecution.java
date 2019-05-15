@@ -22,28 +22,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static java.util.Optional.ofNullable;
-import static no.ssb.saga.execution.sagalog.SagaLogEntry.abort;
-import static no.ssb.saga.execution.sagalog.SagaLogEntry.compDone;
-import static no.ssb.saga.execution.sagalog.SagaLogEntry.endAction;
-import static no.ssb.saga.execution.sagalog.SagaLogEntry.endSaga;
-import static no.ssb.saga.execution.sagalog.SagaLogEntry.startAction;
-import static no.ssb.saga.execution.sagalog.SagaLogEntry.startSaga;
 
-public class SagaExecution {
+public class SagaExecution<SAGA_LOG_ID> {
 
-    private final SagaLog sagaLog;
+    private final SagaLog<SAGA_LOG_ID> sagaLog;
     private final SelectableThreadPoolExectutor executorService;
     private final Saga saga;
     private final AdapterLoader adapterLoader;
 
-    public SagaExecution(SagaLog sagaLog, SelectableThreadPoolExectutor executorService, Saga saga, AdapterLoader adapterLoader) {
+    public SagaExecution(SagaLog<SAGA_LOG_ID> sagaLog, SelectableThreadPoolExectutor executorService, Saga saga, AdapterLoader adapterLoader) {
         this.sagaLog = sagaLog;
         this.executorService = executorService;
         this.saga = saga;
         this.adapterLoader = adapterLoader;
     }
 
-    public SagaLog getSagaLog() {
+    public SagaLog<SAGA_LOG_ID> getSagaLog() {
         return sagaLog;
     }
 
@@ -69,7 +63,7 @@ public class SagaExecution {
         SelectableFuture<SagaHandoffResult> completionFuture = new SelectableFuture<>(null);
         SagaTraversal sagaTraversal = new SagaTraversal(executorService, saga);
         CompletableFuture<SagaTraversalResult> futureTraversalResult = new CompletableFuture<>();
-        Map<String, List<SagaLogEntry>> recoverySagaLogEntriesBySagaNodeId;
+        Map<String, List<SagaLogEntry<SAGA_LOG_ID>>> recoverySagaLogEntriesBySagaNodeId;
         if (recovery) {
             recoverySagaLogEntriesBySagaNodeId = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(executionId);
         } else {
@@ -82,28 +76,28 @@ public class SagaExecution {
                     String serializedSagaInput = ofNullable(sagaInput)
                             .map(i -> adapter.serializer().serialize(i)) // safe unchecked call
                             .orElse(null);
-                    sagaLog.write(startSaga(executionId, saga.name, serializedSagaInput));
+                    sagaLog.write(sagaLog.builder().startSaga(executionId, saga.name, serializedSagaInput));
                 }
                 handoffFuture.complete(new SagaHandoffResult(executionId));
                 return null;
             }
             if (Saga.ID_END.equals(ste.node.id)) {
-                sagaLog.write(endSaga(executionId));
+                sagaLog.write(sagaLog.builder().endSaga(executionId));
                 SagaHandoffResult result = new SagaHandoffResult(executionId);
                 completionFuture.complete(result);
                 onComplete.accept(result);
                 return null;
             }
-            List<SagaLogEntry> sagaLogEntries = recoverySagaLogEntriesBySagaNodeId.get(ste.node.id);
+            List<SagaLogEntry<SAGA_LOG_ID>> sagaLogEntries = recoverySagaLogEntriesBySagaNodeId.get(ste.node.id);
             if (sagaLogEntries == null || sagaLogEntries.isEmpty()) {
-                sagaLog.write(startAction(executionId, ste.node.id));
+                sagaLog.write(sagaLog.builder().startAction(executionId, ste.node.id));
             }
-            if (sagaLogEntries != null && sagaLogEntries.stream().anyMatch(e -> SagaLogEntryType.End == e.entryType)) {
+            if (sagaLogEntries != null && sagaLogEntries.stream().anyMatch(e -> SagaLogEntryType.End == e.getEntryType())) {
                 // action was already executed, return output from saga-log
                 return sagaLogEntries.stream()
-                        .filter(e -> SagaLogEntryType.End == e.entryType)
+                        .filter(e -> SagaLogEntryType.End == e.getEntryType())
                         .findFirst()
-                        .map(sle -> sle.jsonData)
+                        .map(sle -> sle.getJsonData())
                         .map(jsonData -> adapter.serializer().deserialize(jsonData))
                         .orElse(null);
             }
@@ -113,7 +107,7 @@ public class SagaExecution {
 
             } catch (AbortSagaException e) {
                 boolean firstToAbort = sagaTraversal.stopTraversal();
-                sagaLog.write(abort(executionId, ste.node.id));
+                sagaLog.write(sagaLog.builder().abort(executionId, ste.node.id));
                 if (!firstToAbort) {
                     return null; // More than one abort, let only first abort trigger rollback-recovery
                 }
@@ -128,7 +122,7 @@ public class SagaExecution {
                     // ensure we catch all saga-log entries of forward traversal before running recovery
                     sagaTraversalResult.waitForThreadWalksToComplete();
 
-                    rollbackRecovery(executionId, sagaInput, completionFuture, sagaTraversalResult.pendingWalks, sagaTraversalResult.futureThreadWalk, new ConcurrentHashMap<>(), onComplete);
+                    rollbackRecovery(e, executionId, sagaInput, completionFuture, sagaTraversalResult.pendingWalks, sagaTraversalResult.futureThreadWalk, new ConcurrentHashMap<>(), onComplete);
                 });
 
                 return null;
@@ -137,7 +131,7 @@ public class SagaExecution {
             String serializedActionOutput = ofNullable(actionOutput)
                     .map(o -> adapter.serializer().serialize(o)) // safe unchecked call
                     .orElse(null);
-            sagaLog.write(endAction(executionId, ste.node.id, serializedActionOutput));
+            sagaLog.write(sagaLog.builder().endAction(executionId, ste.node.id, serializedActionOutput));
 
             return actionOutput;
         });
@@ -145,41 +139,43 @@ public class SagaExecution {
         return new SagaHandoffControl(sagaInput, executionId, saga, sagaLog, adapterLoader, traversalResult, handoffFuture, completionFuture);
     }
 
-    private void rollbackRecovery(String executionId,
+    private void rollbackRecovery(AbortSagaException exception,
+                                  String executionId,
                                   Object sagaInput,
                                   SelectableFuture<SagaHandoffResult> completionFuture,
                                   AtomicInteger pendingWalks,
                                   BlockingQueue<SelectableFuture<List<String>>> futureThreadWalk,
                                   ConcurrentHashMap<String, SelectableFuture<SelectableFuture<Object>>> futureById,
                                   Consumer<SagaHandoffResult> onComplete) {
-        Map<String, List<SagaLogEntry>> sagaLogEntriesBySagaNodeId = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(executionId);
+        Map<String, List<SagaLogEntry<SAGA_LOG_ID>>> sagaLogEntriesBySagaNodeId = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(executionId);
         SagaTraversal sagaTraversal = new SagaTraversal(executorService, saga);
         sagaTraversal.backward(null, completionFuture, pendingWalks, futureThreadWalk, futureById, ste -> {
             if (Saga.ID_END.equals(ste.node.id)) {
                 return null;
             }
             if (Saga.ID_START.equals(ste.node.id)) {
-                sagaLog.write(endSaga(executionId));
+                sagaLog.write(sagaLog.builder().endSaga(executionId));
                 SagaHandoffResult result = new SagaHandoffResult(executionId);
-                completionFuture.complete(result);
+                completionFuture.completeExceptionally(exception);
+                // completionFuture.complete(result);
                 onComplete.accept(result);
                 return null;
             }
             SagaAdapter adapter = adapterLoader.load(ste.node);
-            List<SagaLogEntry> sagaLogEntries = sagaLogEntriesBySagaNodeId.get(ste.node.id);
+            List<SagaLogEntry<SAGA_LOG_ID>> sagaLogEntries = sagaLogEntriesBySagaNodeId.get(ste.node.id);
             if (sagaLogEntries == null || sagaLogEntries.isEmpty()) {
                 return null;
             }
-            if (sagaLogEntries != null && sagaLogEntries.stream().anyMatch(e -> SagaLogEntryType.Abort == e.entryType)) {
+            if (sagaLogEntries != null && sagaLogEntries.stream().anyMatch(e -> SagaLogEntryType.Abort == e.getEntryType())) {
                 return null; // abort action
             }
             Object actionOutput;
-            if (sagaLogEntries != null && sagaLogEntries.stream().anyMatch(e -> SagaLogEntryType.End == e.entryType)) {
+            if (sagaLogEntries != null && sagaLogEntries.stream().anyMatch(e -> SagaLogEntryType.End == e.getEntryType())) {
                 // action was already executed, use its output to cancel
                 actionOutput = sagaLogEntries.stream()
-                        .filter(e -> SagaLogEntryType.End == e.entryType)
+                        .filter(e -> SagaLogEntryType.End == e.getEntryType())
                         .findFirst()
-                        .map(sle -> sle.jsonData)
+                        .map(sle -> sle.getJsonData())
                         .map(jsonData -> adapter.serializer().deserialize(jsonData))
                         .orElse(null);
             } else {
@@ -188,23 +184,23 @@ public class SagaExecution {
                 Map<SagaNode, Object> dependeesOutput = getDependeesOutputByNode(sagaLogEntriesBySagaNodeId, ste.node, adapter);
                 actionOutput = adapter.executeAction(sagaInput, dependeesOutput);
                 String serializedActionOutput = adapter.serializer().serialize(actionOutput); // safe unchecked call
-                sagaLog.write(endAction(executionId, ste.node.id, serializedActionOutput));
+                sagaLog.write(sagaLog.builder().endAction(executionId, ste.node.id, serializedActionOutput));
             }
             adapter.executeCompensatingAction(sagaInput, actionOutput); // safe unchecked call
-            sagaLog.write(compDone(executionId, ste.node.id));
+            sagaLog.write(sagaLog.builder().compDone(executionId, ste.node.id));
             return null; // no output from running compensating action.
         });
     }
 
     private Map<SagaNode, Object> getDependeesOutputByNode
-            (Map<String, List<SagaLogEntry>> sagaLogEntriesBySagaNodeId, SagaNode node, SagaAdapter adapter) {
+            (Map<String, List<SagaLogEntry<SAGA_LOG_ID>>> sagaLogEntriesBySagaNodeId, SagaNode node, SagaAdapter adapter) {
         Map<SagaNode, Object> dependeesOutputByNode = null;
         for (SagaNode dependeeNode : node.incoming) {
-            List<SagaLogEntry> dependeeEntries = sagaLogEntriesBySagaNodeId.get(dependeeNode.id);
+            List<SagaLogEntry<SAGA_LOG_ID>> dependeeEntries = sagaLogEntriesBySagaNodeId.get(dependeeNode.id);
             Object dependeeOutput = dependeeEntries.stream()
-                    .filter(e -> SagaLogEntryType.End == e.entryType)
+                    .filter(e -> SagaLogEntryType.End == e.getEntryType())
                     .findFirst()
-                    .map(sle -> sle.jsonData)
+                    .map(sle -> sle.getJsonData())
                     .map(jsonData -> adapter.serializer().deserialize(jsonData))
                     .orElse(null);
             dependeesOutputByNode.put(dependeeNode, dependeeOutput);

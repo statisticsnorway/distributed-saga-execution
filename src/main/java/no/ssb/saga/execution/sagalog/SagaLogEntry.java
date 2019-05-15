@@ -1,81 +1,30 @@
 package no.ssb.saga.execution.sagalog;
 
-import no.ssb.saga.api.Saga;
+import java.util.Objects;
 
-public class SagaLogEntry {
+public class SagaLogEntry<ID> {
 
-    public static SagaLogEntry startSaga(String executionId, String sagaName, String sagaInputJson) {
-        return new SagaLogEntry(executionId, SagaLogEntryType.Start, Saga.ID_START, sagaName, sagaInputJson);
-    }
+    final ID id;
+    final String executionId;
+    final SagaLogEntryType entryType;
+    final String nodeId;
+    final String sagaName;
+    final String jsonData;
 
-    public static SagaLogEntry startAction(String executionId, String nodeId) {
-        return new SagaLogEntry(executionId, SagaLogEntryType.Start, nodeId, null, null);
-    }
-
-    public static SagaLogEntry endAction(String executionId, String nodeId, String actionOutputJson) {
-        return new SagaLogEntry(executionId, SagaLogEntryType.End, nodeId, null, actionOutputJson);
-    }
-
-    public static SagaLogEntry endSaga(String executionId) {
-        return new SagaLogEntry(executionId, SagaLogEntryType.End, Saga.ID_END, null, null);
-    }
-
-    public static SagaLogEntry abort(String executionId, String nodeId) {
-        return new SagaLogEntry(executionId, SagaLogEntryType.Abort, nodeId, null, null);
-    }
-
-    public static SagaLogEntry compDone(String executionId, String nodeId) {
-        return new SagaLogEntry(executionId, SagaLogEntryType.Comp, nodeId, null, null);
-    }
-
-    public static SagaLogEntry from(String line) {
-
-        // mandatory log-fields
-
-        int executionIdEndIndex = line.indexOf(' ');
-        String executionId = line.substring(0, executionIdEndIndex);
-        line = line.substring(executionIdEndIndex + 1);
-
-        int entryTypeEndIndex = line.indexOf(' ');
-        SagaLogEntryType entryType = SagaLogEntryType.valueOf(line.substring(0, entryTypeEndIndex));
-        line = line.substring(entryTypeEndIndex + 1);
-
-        int nodeIdEndIdex = line.indexOf(' ');
-        if (nodeIdEndIdex == -1) {
-            String nodeId = line;
-            return new SagaLogEntry(executionId, entryType, nodeId, null, null);
+    SagaLogEntry(ID id, String executionId, SagaLogEntryType entryType, String nodeId, String sagaName, String jsonData) {
+        if (id == null) {
+            throw new NullPointerException("id");
         }
-
-        String nodeId = line.substring(0, nodeIdEndIdex);
-        line = line.substring(nodeIdEndIdex + 1);
-
-        // optional log-fields
-        if (Saga.ID_START.equals(nodeId)) {
-            int jsonDataBeginIndex = line.indexOf('{');
-            if (jsonDataBeginIndex == -1) {
-                String sagaName = line.substring(0, line.length() - 1);
-                return new SagaLogEntry(executionId, entryType, nodeId, sagaName, null);
-            }
-            String sagaName = line.substring(0, jsonDataBeginIndex - 1);
-            String jsonData = line.substring(jsonDataBeginIndex);
-            return new SagaLogEntry(executionId, entryType, nodeId, sagaName, jsonData);
+        if (executionId == null) {
+            throw new NullPointerException("executionId");
         }
-
-        int jsonDataBeginIndex = line.indexOf('{');
-        if (jsonDataBeginIndex == -1) {
-            return new SagaLogEntry(executionId, entryType, nodeId, null, null);
+        if (entryType == null) {
+            throw new NullPointerException("entryType");
         }
-        String jsonData = line.substring(jsonDataBeginIndex);
-        return new SagaLogEntry(executionId, entryType, nodeId, null, jsonData);
-    }
-
-    public final String executionId;
-    public final SagaLogEntryType entryType;
-    public final String nodeId;
-    public final String sagaName;
-    public final String jsonData;
-
-    public SagaLogEntry(String executionId, SagaLogEntryType entryType, String nodeId, String sagaName, String jsonData) {
+        if (nodeId == null) {
+            throw new NullPointerException("nodeId");
+        }
+        this.id = id;
         this.executionId = executionId;
         this.entryType = entryType;
         this.nodeId = nodeId;
@@ -84,7 +33,52 @@ public class SagaLogEntry {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SagaLogEntry<?> that = (SagaLogEntry<?>) o;
+        return id.equals(that.id) &&
+                executionId.equals(that.executionId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, executionId);
+    }
+
+    @Override
     public String toString() {
-        return executionId + ' ' + entryType + ' ' + nodeId + (sagaName == null ? "" : ' ' + sagaName) + (jsonData == null ? "" : ' ' + jsonData);
+        return "MemorySagaLogEntry{" +
+                "id=" + id +
+                ", executionId='" + executionId + '\'' +
+                ", entryType=" + entryType +
+                ", nodeId='" + nodeId + '\'' +
+                ", sagaName='" + sagaName + '\'' +
+                ", jsonData='" + jsonData + '\'' +
+                '}';
+    }
+
+    public ID getId() {
+        return id;
+    }
+
+    public String getExecutionId() {
+        return executionId;
+    }
+
+    public SagaLogEntryType getEntryType() {
+        return entryType;
+    }
+
+    public String getNodeId() {
+        return nodeId;
+    }
+
+    public String getSagaName() {
+        return sagaName;
+    }
+
+    public String getJsonData() {
+        return jsonData;
     }
 }

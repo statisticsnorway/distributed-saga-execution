@@ -4,25 +4,35 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public interface SagaLog {
+public interface SagaLog<ID> {
 
-    String write(SagaLogEntry entry);
+    default SagaLogEntryBuilder<ID> builder() {
+        return new SagaLogEntryBuilder<>();
+    }
 
-    List<SagaLogEntry> readEntries(String executionId);
+    CompletableFuture<SagaLogEntry<ID>> write(SagaLogEntryBuilder<ID> builder);
 
-    default Map<String, List<SagaLogEntry>> getSnapshotOfSagaLogEntriesByNodeId(String executionId) {
-        Map<String, List<SagaLogEntry>> recoverySagaLogEntriesBySagaNodeId = new LinkedHashMap<>();
-        List<SagaLogEntry> entries = readEntries(executionId);
-        for (SagaLogEntry entry : entries) {
-            List<SagaLogEntry> nodeEntries = recoverySagaLogEntriesBySagaNodeId.get(entry.nodeId);
+    CompletableFuture<Void> truncate(ID id);
+
+    Stream<SagaLogEntry<ID>> readIncompleteSagas();
+
+    Stream<SagaLogEntry<ID>> readEntries(String executionId);
+
+    default Map<String, List<SagaLogEntry<ID>>> getSnapshotOfSagaLogEntriesByNodeId(String executionId) {
+        Map<String, List<SagaLogEntry<ID>>> recoverySagaLogEntriesBySagaNodeId = new LinkedHashMap<>();
+        List<SagaLogEntry<ID>> entries = readEntries(executionId).collect(Collectors.toList());
+        for (SagaLogEntry<ID> entry : entries) {
+            List<SagaLogEntry<ID>> nodeEntries = recoverySagaLogEntriesBySagaNodeId.get(entry.getNodeId());
             if (nodeEntries == null) {
                 nodeEntries = new ArrayList<>(4);
-                recoverySagaLogEntriesBySagaNodeId.put(entry.nodeId, nodeEntries);
+                recoverySagaLogEntriesBySagaNodeId.put(entry.getNodeId(), nodeEntries);
             }
             nodeEntries.add(entry);
         }
         return recoverySagaLogEntriesBySagaNodeId;
     }
-
 }
