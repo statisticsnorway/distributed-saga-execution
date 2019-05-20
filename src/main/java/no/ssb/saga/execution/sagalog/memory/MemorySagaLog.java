@@ -3,30 +3,32 @@ package no.ssb.saga.execution.sagalog.memory;
 import no.ssb.saga.execution.sagalog.SagaLog;
 import no.ssb.saga.execution.sagalog.SagaLogEntry;
 import no.ssb.saga.execution.sagalog.SagaLogEntryBuilder;
+import no.ssb.saga.execution.sagalog.SagaLogEntryId;
 
+import java.nio.ByteBuffer;
+import java.util.Deque;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
-public class MemorySagaLog implements SagaLog<Long> {
+public class MemorySagaLog implements SagaLog {
 
     private final AtomicLong nextId = new AtomicLong(0);
-    private final List<SagaLogEntry<Long>> incompleteEntries = new CopyOnWriteArrayList();
+    private final Deque<SagaLogEntry> incompleteEntries = new ConcurrentLinkedDeque<>();
 
     @Override
-    public Stream<SagaLogEntry<Long>> readEntries(String executionId) {
+    public Stream<SagaLogEntry> readEntries(String executionId) {
         return incompleteEntries.stream().filter(e -> executionId.equals(e.getExecutionId()));
     }
 
     @Override
-    public CompletableFuture<SagaLogEntry<Long>> write(SagaLogEntryBuilder<Long> builder) {
+    public CompletableFuture<SagaLogEntry> write(SagaLogEntryBuilder builder) {
         synchronized (this) {
             if (builder.id() == null) {
-                builder.id(nextId.getAndIncrement());
+                builder.id(new MemorySagaLogEntryId(nextId.getAndIncrement()));
             }
             SagaLogEntry entry = builder.build();
             incompleteEntries.add(entry);
@@ -35,10 +37,10 @@ public class MemorySagaLog implements SagaLog<Long> {
     }
 
     @Override
-    public CompletableFuture<Void> truncate(Long entryId) {
-        Set<SagaLogEntry<Long>> toBeRemoved = new LinkedHashSet<>();
-        Set<Long> toBeRemovedIds = new LinkedHashSet<>();
-        for (SagaLogEntry<Long> sle : incompleteEntries) {
+    public CompletableFuture<Void> truncate(SagaLogEntryId entryId) {
+        Set<SagaLogEntry> toBeRemoved = new LinkedHashSet<>();
+        Set toBeRemovedIds = new LinkedHashSet<>();
+        for (SagaLogEntry sle : incompleteEntries) {
             toBeRemoved.add(sle);
             toBeRemovedIds.add(sle.getId());
             if (entryId.equals(sle.getId())) {
@@ -52,7 +54,38 @@ public class MemorySagaLog implements SagaLog<Long> {
     }
 
     @Override
-    public Stream<SagaLogEntry<Long>> readIncompleteSagas() {
+    public CompletableFuture<Void> truncate() {
+        SagaLogEntry lastEntry = incompleteEntries.peekLast();
+        if (lastEntry == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return truncate(lastEntry.getId());
+    }
+
+    @Override
+    public Stream<SagaLogEntry> readIncompleteSagas() {
         return incompleteEntries.stream();
+    }
+
+    @Override
+    public String toString(SagaLogEntryId id) {
+        return String.valueOf(((MemorySagaLogEntryId) id).id);
+    }
+
+    @Override
+    public SagaLogEntryId fromString(String idString) {
+        return new MemorySagaLogEntryId(Long.parseLong(idString));
+    }
+
+    @Override
+    public byte[] toBytes(SagaLogEntryId id) {
+        byte[] bytes = new byte[8];
+        ByteBuffer.wrap(bytes).putLong(((MemorySagaLogEntryId) id).id);
+        return bytes;
+    }
+
+    @Override
+    public SagaLogEntryId fromBytes(byte[] idBytes) {
+        return new MemorySagaLogEntryId(ByteBuffer.wrap(idBytes).getLong());
     }
 }

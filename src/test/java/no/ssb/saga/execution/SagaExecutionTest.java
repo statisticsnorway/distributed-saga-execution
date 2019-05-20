@@ -62,12 +62,13 @@ public class SagaExecutionTest {
         AtomicBoolean rollbackRecoveryRun = new AtomicBoolean(false);
         MemorySagaLog sagaLog = new MemorySagaLog() {
             @Override
-            public CompletableFuture<SagaLogEntry<Long>> write(SagaLogEntryBuilder<Long> builder) {
+            public CompletableFuture<SagaLogEntry> write(SagaLogEntryBuilder builder) {
                 if (SagaLogEntryType.Abort == builder.entryType()) {
                     rollbackRecoveryRun.set(true);
                 }
+                CompletableFuture<SagaLogEntry> completableFuture = super.write(builder);
                 System.out.println(builder);
-                return super.write(builder);
+                return completableFuture;
             }
         };
         SagaExecution sagaExecution = new SagaExecution(sagaLog, executorService, saga, adapterLoader);
@@ -86,7 +87,8 @@ public class SagaExecutionTest {
                 throw new RuntimeException(e);
             }
         }
-        Map<String, List<SagaLogEntry<Long>>> sagaLogEntriesByNodeId = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(executionId);
+        Map<String, List<SagaLogEntry>> sagaLogEntriesByNodeId = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(executionId);
+        sagaLog.truncate();
 
         if (rollbackRecoveryRun.get()) {
 
@@ -96,22 +98,22 @@ public class SagaExecutionTest {
              */
 
             // Check that start and end saga was logged
-            List<SagaLogEntry<Long>> startEntries = sagaLogEntriesByNodeId.get(Saga.ID_START);
+            List<SagaLogEntry> startEntries = sagaLogEntriesByNodeId.get(Saga.ID_START);
             assertEquals(startEntries.size(), 1);
             assertEquals(startEntries.get(0).getEntryType(), SagaLogEntryType.Start);
-            List<SagaLogEntry<Long>> endEntries = sagaLogEntriesByNodeId.get(Saga.ID_END);
+            List<SagaLogEntry> endEntries = sagaLogEntriesByNodeId.get(Saga.ID_END);
             assertEquals(endEntries.size(), 1);
             assertEquals(endEntries.get(0).getEntryType(), SagaLogEntryType.End);
 
             // Check that those nodes that were logged with at least {Start} were also logged with either {Abort} or both {End,Comp}
-            for (Map.Entry<String, List<SagaLogEntry<Long>>> entry : sagaLogEntriesByNodeId.entrySet()) {
+            for (Map.Entry<String, List<SagaLogEntry>> entry : sagaLogEntriesByNodeId.entrySet()) {
                 if (Saga.ID_START.equals(entry.getKey())) {
                     continue;
                 }
                 if (Saga.ID_END.equals(entry.getKey())) {
                     continue;
                 }
-                List<SagaLogEntry<Long>> nodeEntries = entry.getValue();
+                List<SagaLogEntry> nodeEntries = entry.getValue();
                 if (nodeEntries.isEmpty()) {
                     continue;
                 }
@@ -140,10 +142,10 @@ public class SagaExecutionTest {
              */
 
             // Check that start and end saga was logged
-            List<SagaLogEntry<Long>> startEntries = sagaLogEntriesByNodeId.get(Saga.ID_START);
+            List<SagaLogEntry> startEntries = sagaLogEntriesByNodeId.get(Saga.ID_START);
             assertEquals(startEntries.size(), 1);
             assertEquals(startEntries.get(0).getEntryType(), SagaLogEntryType.Start);
-            List<SagaLogEntry<Long>> endEntries = sagaLogEntriesByNodeId.get(Saga.ID_END);
+            List<SagaLogEntry> endEntries = sagaLogEntriesByNodeId.get(Saga.ID_END);
             assertEquals(endEntries.size(), 1);
             assertEquals(endEntries.get(0).getEntryType(), SagaLogEntryType.End);
 
@@ -151,14 +153,14 @@ public class SagaExecutionTest {
             assertEquals(sagaLogEntriesByNodeId.keySet(), saga.nodes().stream().map(n -> n.id).collect(Collectors.toSet()));
 
             // Check that all nodes (except first and last) in saga were logged with {Start, End}
-            for (Map.Entry<String, List<SagaLogEntry<Long>>> entry : sagaLogEntriesByNodeId.entrySet()) {
+            for (Map.Entry<String, List<SagaLogEntry>> entry : sagaLogEntriesByNodeId.entrySet()) {
                 if (Saga.ID_START.equals(entry.getKey())) {
                     continue;
                 }
                 if (Saga.ID_END.equals(entry.getKey())) {
                     continue;
                 }
-                List<SagaLogEntry<Long>> nodeEntries = entry.getValue();
+                List<SagaLogEntry> nodeEntries = entry.getValue();
                 if (nodeEntries.stream().anyMatch(sle -> SagaLogEntryType.Start == sle.getEntryType())) {
                     if (nodeEntries.stream().anyMatch(sle -> SagaLogEntryType.End == sle.getEntryType())) {
                         assertEquals(nodeEntries.size(), 2); // {Start, End}

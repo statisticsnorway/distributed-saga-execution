@@ -2,9 +2,9 @@ package no.ssb.saga.execution.sagalog;
 
 import no.ssb.saga.api.Saga;
 
-public class SagaLogEntryBuilder<ID> {
+public class SagaLogEntryBuilder {
 
-    ID id;
+    SagaLogEntryId id;
     String executionId;
     SagaLogEntryType entryType;
     String nodeId;
@@ -14,65 +14,69 @@ public class SagaLogEntryBuilder<ID> {
     public SagaLogEntryBuilder() {
     }
 
-    public SagaLogEntry<ID> build() {
+    public SagaLogEntry build() {
         return new SagaLogEntry(id, executionId, entryType, nodeId, sagaName, jsonData);
     }
 
-    public SagaLogEntryBuilder<ID> startSaga(String executionId, String sagaName, String sagaInputJson) {
+    public SagaLogEntryBuilder startSaga(String executionId, String sagaName, String sagaInputJson) {
         return executionId(executionId).entryType(SagaLogEntryType.Start).nodeId(Saga.ID_START).sagaName(sagaName).jsonData(sagaInputJson);
     }
 
-    public SagaLogEntryBuilder<ID> startAction(String executionId, String nodeId) {
+    public SagaLogEntryBuilder startAction(String executionId, String nodeId) {
         return executionId(executionId).entryType(SagaLogEntryType.Start).nodeId(nodeId);
     }
 
-    public SagaLogEntryBuilder<ID> endAction(String executionId, String nodeId, String actionOutputJson) {
+    public SagaLogEntryBuilder endAction(String executionId, String nodeId, String actionOutputJson) {
         return executionId(executionId).entryType(SagaLogEntryType.End).nodeId(nodeId).jsonData(actionOutputJson);
     }
 
-    public SagaLogEntryBuilder<ID> endSaga(String executionId) {
+    public SagaLogEntryBuilder endSaga(String executionId) {
         return executionId(executionId).entryType(SagaLogEntryType.End).nodeId(Saga.ID_END);
     }
 
-    public SagaLogEntryBuilder<ID> abort(String executionId, String nodeId) {
+    public SagaLogEntryBuilder abort(String executionId, String nodeId) {
         return executionId(executionId).entryType(SagaLogEntryType.Abort).nodeId(nodeId);
     }
 
-    public SagaLogEntryBuilder<ID> compDone(String executionId, String nodeId) {
+    public SagaLogEntryBuilder compDone(String executionId, String nodeId) {
         return executionId(executionId).entryType(SagaLogEntryType.Comp).nodeId(nodeId);
     }
 
-    public SagaLogEntryBuilder<ID> id(ID id) {
+    public SagaLogEntryBuilder control() {
+        return executionId("c").entryType(SagaLogEntryType.Ignore).nodeId("c");
+    }
+
+    public SagaLogEntryBuilder id(SagaLogEntryId id) {
         this.id = id;
         return this;
     }
 
-    public SagaLogEntryBuilder<ID> executionId(String executionId) {
+    public SagaLogEntryBuilder executionId(String executionId) {
         this.executionId = executionId;
         return this;
     }
 
-    public SagaLogEntryBuilder<ID> entryType(SagaLogEntryType entryType) {
+    public SagaLogEntryBuilder entryType(SagaLogEntryType entryType) {
         this.entryType = entryType;
         return this;
     }
 
-    public SagaLogEntryBuilder<ID> nodeId(String nodeId) {
+    public SagaLogEntryBuilder nodeId(String nodeId) {
         this.nodeId = nodeId;
         return this;
     }
 
-    public SagaLogEntryBuilder<ID> sagaName(String sagaName) {
+    public SagaLogEntryBuilder sagaName(String sagaName) {
         this.sagaName = sagaName;
         return this;
     }
 
-    public SagaLogEntryBuilder<ID> jsonData(String jsonData) {
+    public SagaLogEntryBuilder jsonData(String jsonData) {
         this.jsonData = jsonData;
         return this;
     }
 
-    public ID id() {
+    public SagaLogEntryId id() {
         return id;
     }
 

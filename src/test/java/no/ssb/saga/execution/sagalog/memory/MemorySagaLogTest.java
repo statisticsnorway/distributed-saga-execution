@@ -22,7 +22,7 @@ public class MemorySagaLogTest {
     public void thatWriteAndReadEntriesWorks() {
         MemorySagaLog sagaLog = new MemorySagaLog();
 
-        Deque<SagaLogEntry<Long>> expectedEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
+        Deque<SagaLogEntry> expectedEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
 
         assertEquals(sagaLog.readEntries(expectedEntries.getFirst().getExecutionId()).collect(Collectors.toList()), expectedEntries);
     }
@@ -31,12 +31,12 @@ public class MemorySagaLogTest {
     public void thatTruncateWithReadIncompleteWorks() {
         MemorySagaLog sagaLog = new MemorySagaLog();
 
-        Deque<SagaLogEntry<Long>> initialEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
+        Deque<SagaLogEntry> initialEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
         sagaLog.truncate(initialEntries.getLast().getId());
 
-        Deque<SagaLogEntry<Long>> expectedEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
+        Deque<SagaLogEntry> expectedEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
 
-        List<SagaLogEntry<Long>> actualEntries = sagaLog.readIncompleteSagas().collect(Collectors.toList());
+        List<SagaLogEntry> actualEntries = sagaLog.readIncompleteSagas().collect(Collectors.toList());
         assertEquals(actualEntries, expectedEntries);
     }
 
@@ -44,13 +44,13 @@ public class MemorySagaLogTest {
     public void thatNoTruncateWithReadIncompleteWorks() {
         MemorySagaLog sagaLog = new MemorySagaLog();
 
-        Deque<SagaLogEntry<Long>> firstEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
-        Deque<SagaLogEntry<Long>> secondEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
-        Deque<SagaLogEntry<Long>> expectedEntries = new LinkedList<>();
+        Deque<SagaLogEntry> firstEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
+        Deque<SagaLogEntry> secondEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
+        Deque<SagaLogEntry> expectedEntries = new LinkedList<>();
         expectedEntries.addAll(firstEntries);
         expectedEntries.addAll(secondEntries);
 
-        List<SagaLogEntry<Long>> actualEntries = sagaLog.readIncompleteSagas().collect(Collectors.toList());
+        List<SagaLogEntry> actualEntries = sagaLog.readIncompleteSagas().collect(Collectors.toList());
         assertEquals(actualEntries, expectedEntries);
     }
 
@@ -58,20 +58,20 @@ public class MemorySagaLogTest {
     public void thatSnapshotOfSagaLogEntriesByNodeIdWorks() {
         MemorySagaLog sagaLog = new MemorySagaLog();
 
-        Deque<SagaLogEntry<Long>> firstEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
-        Deque<SagaLogEntry<Long>> secondEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
-        Deque<SagaLogEntry<Long>> expectedEntries = new LinkedList<>();
+        Deque<SagaLogEntry> firstEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
+        Deque<SagaLogEntry> secondEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
+        Deque<SagaLogEntry> expectedEntries = new LinkedList<>();
         expectedEntries.addAll(firstEntries);
         expectedEntries.addAll(secondEntries);
 
-        Map<String, List<SagaLogEntry<Long>>> snapshotFirst = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(firstEntries.getFirst().getExecutionId());
-        Set<SagaLogEntry<Long>> firstFlattenedSnapshot = new LinkedHashSet<>();
-        for (List<SagaLogEntry<Long>> collection : snapshotFirst.values()) {
+        Map<String, List<SagaLogEntry>> snapshotFirst = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(firstEntries.getFirst().getExecutionId());
+        Set<SagaLogEntry> firstFlattenedSnapshot = new LinkedHashSet<>();
+        for (List<SagaLogEntry> collection : snapshotFirst.values()) {
             firstFlattenedSnapshot.addAll(collection);
         }
-        Map<String, List<SagaLogEntry<Long>>> snapshotSecond = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(secondEntries.getFirst().getExecutionId());
-        Set<SagaLogEntry<Long>> secondFlattenedSnapshot = new LinkedHashSet<>();
-        for (List<SagaLogEntry<Long>> collection : snapshotSecond.values()) {
+        Map<String, List<SagaLogEntry>> snapshotSecond = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(secondEntries.getFirst().getExecutionId());
+        Set<SagaLogEntry> secondFlattenedSnapshot = new LinkedHashSet<>();
+        for (List<SagaLogEntry> collection : snapshotSecond.values()) {
             secondFlattenedSnapshot.addAll(collection);
         }
 
@@ -79,8 +79,8 @@ public class MemorySagaLogTest {
         assertEquals(secondFlattenedSnapshot, Set.copyOf(secondEntries));
     }
 
-    private Deque<SagaLogEntry<Long>> writeSuccessfulVanillaSagaExecutionEntries(MemorySagaLog sagaLog, String executionId) {
-        Deque<SagaLogEntryBuilder<Long>> entryBuilders = new LinkedList<>();
+    private Deque<SagaLogEntry> writeSuccessfulVanillaSagaExecutionEntries(MemorySagaLog sagaLog, String executionId) {
+        Deque<SagaLogEntryBuilder> entryBuilders = new LinkedList<>();
         entryBuilders.add(sagaLog.builder().startSaga(executionId, "Vanilla-Saga", "{}"));
         entryBuilders.add(sagaLog.builder().startAction(executionId, "action1"));
         entryBuilders.add(sagaLog.builder().startAction(executionId, "action2"));
@@ -88,9 +88,9 @@ public class MemorySagaLogTest {
         entryBuilders.add(sagaLog.builder().endAction(executionId, "action2", "{}"));
         entryBuilders.add(sagaLog.builder().endSaga(executionId));
 
-        Deque<SagaLogEntry<Long>> entries = new LinkedList<>();
-        for (SagaLogEntryBuilder<Long> builder : entryBuilders) {
-            CompletableFuture<SagaLogEntry<Long>> entryFuture = sagaLog.write(builder);
+        Deque<SagaLogEntry> entries = new LinkedList<>();
+        for (SagaLogEntryBuilder builder : entryBuilders) {
+            CompletableFuture<SagaLogEntry> entryFuture = sagaLog.write(builder);
             entries.add(entryFuture.join());
         }
         return entries;

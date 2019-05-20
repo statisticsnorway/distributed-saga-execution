@@ -2,16 +2,16 @@ package no.ssb.saga.execution.sagalog;
 
 import java.util.Objects;
 
-public class SagaLogEntry<ID> {
+public class SagaLogEntry {
 
-    final ID id;
+    final SagaLogEntryId id;
     final String executionId;
     final SagaLogEntryType entryType;
     final String nodeId;
     final String sagaName;
     final String jsonData;
 
-    SagaLogEntry(ID id, String executionId, SagaLogEntryType entryType, String nodeId, String sagaName, String jsonData) {
+    SagaLogEntry(SagaLogEntryId id, String executionId, SagaLogEntryType entryType, String nodeId, String sagaName, String jsonData) {
         if (id == null) {
             throw new NullPointerException("id");
         }
@@ -36,7 +36,7 @@ public class SagaLogEntry<ID> {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        SagaLogEntry<?> that = (SagaLogEntry<?>) o;
+        SagaLogEntry that = (SagaLogEntry) o;
         return id.equals(that.id) &&
                 executionId.equals(that.executionId);
     }
@@ -58,7 +58,7 @@ public class SagaLogEntry<ID> {
                 '}';
     }
 
-    public ID getId() {
+    public SagaLogEntryId getId() {
         return id;
     }
 

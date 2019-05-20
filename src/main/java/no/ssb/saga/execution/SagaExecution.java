@@ -23,21 +23,21 @@ import java.util.function.Consumer;
 
 import static java.util.Optional.ofNullable;
 
-public class SagaExecution<SAGA_LOG_ID> {
+public class SagaExecution {
 
-    private final SagaLog<SAGA_LOG_ID> sagaLog;
+    private final SagaLog sagaLog;
     private final SelectableThreadPoolExectutor executorService;
     private final Saga saga;
     private final AdapterLoader adapterLoader;
 
-    public SagaExecution(SagaLog<SAGA_LOG_ID> sagaLog, SelectableThreadPoolExectutor executorService, Saga saga, AdapterLoader adapterLoader) {
+    public SagaExecution(SagaLog sagaLog, SelectableThreadPoolExectutor executorService, Saga saga, AdapterLoader adapterLoader) {
         this.sagaLog = sagaLog;
         this.executorService = executorService;
         this.saga = saga;
         this.adapterLoader = adapterLoader;
     }
 
-    public SagaLog<SAGA_LOG_ID> getSagaLog() {
+    public SagaLog getSagaLog() {
         return sagaLog;
     }
 
@@ -63,7 +63,7 @@ public class SagaExecution<SAGA_LOG_ID> {
         SelectableFuture<SagaHandoffResult> completionFuture = new SelectableFuture<>(null);
         SagaTraversal sagaTraversal = new SagaTraversal(executorService, saga);
         CompletableFuture<SagaTraversalResult> futureTraversalResult = new CompletableFuture<>();
-        Map<String, List<SagaLogEntry<SAGA_LOG_ID>>> recoverySagaLogEntriesBySagaNodeId;
+        Map<String, List<SagaLogEntry>> recoverySagaLogEntriesBySagaNodeId;
         if (recovery) {
             recoverySagaLogEntriesBySagaNodeId = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(executionId);
         } else {
@@ -88,7 +88,7 @@ public class SagaExecution<SAGA_LOG_ID> {
                 onComplete.accept(result);
                 return null;
             }
-            List<SagaLogEntry<SAGA_LOG_ID>> sagaLogEntries = recoverySagaLogEntriesBySagaNodeId.get(ste.node.id);
+            List<SagaLogEntry> sagaLogEntries = recoverySagaLogEntriesBySagaNodeId.get(ste.node.id);
             if (sagaLogEntries == null || sagaLogEntries.isEmpty()) {
                 sagaLog.write(sagaLog.builder().startAction(executionId, ste.node.id));
             }
@@ -147,7 +147,7 @@ public class SagaExecution<SAGA_LOG_ID> {
                                   BlockingQueue<SelectableFuture<List<String>>> futureThreadWalk,
                                   ConcurrentHashMap<String, SelectableFuture<SelectableFuture<Object>>> futureById,
                                   Consumer<SagaHandoffResult> onComplete) {
-        Map<String, List<SagaLogEntry<SAGA_LOG_ID>>> sagaLogEntriesBySagaNodeId = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(executionId);
+        Map<String, List<SagaLogEntry>> sagaLogEntriesBySagaNodeId = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(executionId);
         SagaTraversal sagaTraversal = new SagaTraversal(executorService, saga);
         sagaTraversal.backward(null, completionFuture, pendingWalks, futureThreadWalk, futureById, ste -> {
             if (Saga.ID_END.equals(ste.node.id)) {
@@ -162,7 +162,7 @@ public class SagaExecution<SAGA_LOG_ID> {
                 return null;
             }
             SagaAdapter adapter = adapterLoader.load(ste.node);
-            List<SagaLogEntry<SAGA_LOG_ID>> sagaLogEntries = sagaLogEntriesBySagaNodeId.get(ste.node.id);
+            List<SagaLogEntry> sagaLogEntries = sagaLogEntriesBySagaNodeId.get(ste.node.id);
             if (sagaLogEntries == null || sagaLogEntries.isEmpty()) {
                 return null;
             }
@@ -193,10 +193,10 @@ public class SagaExecution<SAGA_LOG_ID> {
     }
 
     private Map<SagaNode, Object> getDependeesOutputByNode
-            (Map<String, List<SagaLogEntry<SAGA_LOG_ID>>> sagaLogEntriesBySagaNodeId, SagaNode node, SagaAdapter adapter) {
+            (Map<String, List<SagaLogEntry>> sagaLogEntriesBySagaNodeId, SagaNode node, SagaAdapter adapter) {
         Map<SagaNode, Object> dependeesOutputByNode = null;
         for (SagaNode dependeeNode : node.incoming) {
-            List<SagaLogEntry<SAGA_LOG_ID>> dependeeEntries = sagaLogEntriesBySagaNodeId.get(dependeeNode.id);
+            List<SagaLogEntry> dependeeEntries = sagaLogEntriesBySagaNodeId.get(dependeeNode.id);
             Object dependeeOutput = dependeeEntries.stream()
                     .filter(e -> SagaLogEntryType.End == e.getEntryType())
                     .findFirst()
