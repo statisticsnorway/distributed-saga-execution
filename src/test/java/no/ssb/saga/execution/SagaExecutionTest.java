@@ -5,10 +5,13 @@ import no.ssb.saga.api.Saga;
 import no.ssb.saga.execution.adapter.AbortSagaException;
 import no.ssb.saga.execution.adapter.Adapter;
 import no.ssb.saga.execution.adapter.AdapterLoader;
-import no.ssb.saga.execution.sagalog.SagaLogEntry;
-import no.ssb.saga.execution.sagalog.SagaLogEntryBuilder;
-import no.ssb.saga.execution.sagalog.SagaLogEntryType;
-import no.ssb.saga.execution.sagalog.memory.MemorySagaLog;
+import no.ssb.sagalog.SagaLog;
+import no.ssb.sagalog.SagaLogEntry;
+import no.ssb.sagalog.SagaLogEntryBuilder;
+import no.ssb.sagalog.SagaLogEntryId;
+import no.ssb.sagalog.SagaLogEntryType;
+import no.ssb.sagalog.SagaLogPool;
+import no.ssb.sagalog.memory.MemorySagaLogInitializer;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -24,6 +27,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.testng.Assert.assertEquals;
 
@@ -60,15 +64,59 @@ public class SagaExecutionTest {
 
     private void executeAndVerifyThatActionsWereExecuted(String requestData, Saga saga) {
         AtomicBoolean rollbackRecoveryRun = new AtomicBoolean(false);
-        MemorySagaLog sagaLog = new MemorySagaLog() {
+        MemorySagaLogInitializer sagaLogInitializer = new MemorySagaLogInitializer();
+        SagaLogPool sagaLogPool = sagaLogInitializer.initialize(Map.of());
+        SagaLog sagaLog = new SagaLog() {
+            SagaLog delegate = sagaLogPool.connect("testng-main-thread");
+
             @Override
             public CompletableFuture<SagaLogEntry> write(SagaLogEntryBuilder builder) {
                 if (SagaLogEntryType.Abort == builder.entryType()) {
                     rollbackRecoveryRun.set(true);
                 }
-                CompletableFuture<SagaLogEntry> completableFuture = super.write(builder);
+                CompletableFuture<SagaLogEntry> completableFuture = delegate.write(builder);
                 System.out.println(builder);
                 return completableFuture;
+            }
+
+            @Override
+            public CompletableFuture<Void> truncate(SagaLogEntryId id) {
+                return delegate.truncate(id);
+            }
+
+            @Override
+            public CompletableFuture<Void> truncate() {
+                return delegate.truncate();
+            }
+
+            @Override
+            public Stream<SagaLogEntry> readIncompleteSagas() {
+                return delegate.readIncompleteSagas();
+            }
+
+            @Override
+            public Stream<SagaLogEntry> readEntries(String executionId) {
+                return delegate.readEntries(executionId);
+            }
+
+            @Override
+            public String toString(SagaLogEntryId id) {
+                return delegate.toString(id);
+            }
+
+            @Override
+            public SagaLogEntryId fromString(String id) {
+                return delegate.fromString(id);
+            }
+
+            @Override
+            public byte[] toBytes(SagaLogEntryId id) {
+                return delegate.toBytes(id);
+            }
+
+            @Override
+            public SagaLogEntryId fromBytes(byte[] idBytes) {
+                return delegate.fromBytes(idBytes);
             }
         };
         SagaExecution sagaExecution = new SagaExecution(sagaLog, executorService, saga, adapterLoader);

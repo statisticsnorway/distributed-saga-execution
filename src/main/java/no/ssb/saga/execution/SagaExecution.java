@@ -7,9 +7,9 @@ import no.ssb.saga.api.SagaNode;
 import no.ssb.saga.execution.adapter.AbortSagaException;
 import no.ssb.saga.execution.adapter.AdapterLoader;
 import no.ssb.saga.execution.adapter.SagaAdapter;
-import no.ssb.saga.execution.sagalog.SagaLog;
-import no.ssb.saga.execution.sagalog.SagaLogEntry;
-import no.ssb.saga.execution.sagalog.SagaLogEntryType;
+import no.ssb.sagalog.SagaLog;
+import no.ssb.sagalog.SagaLogEntry;
+import no.ssb.sagalog.SagaLogEntryType;
 
 import java.util.Collections;
 import java.util.List;

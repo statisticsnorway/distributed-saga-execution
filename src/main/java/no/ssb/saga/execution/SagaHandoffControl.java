@@ -3,7 +3,7 @@ package no.ssb.saga.execution;
 import no.ssb.concurrent.futureselector.SelectableFuture;
 import no.ssb.saga.api.Saga;
 import no.ssb.saga.execution.adapter.AdapterLoader;
-import no.ssb.saga.execution.sagalog.SagaLog;
+import no.ssb.sagalog.SagaLog;
 
 public class SagaHandoffControl {
     private final Object sagaInput;
