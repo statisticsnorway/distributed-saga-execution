@@ -10,13 +10,14 @@ import no.ssb.sagalog.SagaLogEntry;
 import no.ssb.sagalog.SagaLogEntryBuilder;
 import no.ssb.sagalog.SagaLogEntryId;
 import no.ssb.sagalog.SagaLogEntryType;
+import no.ssb.sagalog.SagaLogInitializer;
 import no.ssb.sagalog.SagaLogPool;
-import no.ssb.sagalog.memory.MemorySagaLogInitializer;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -64,8 +65,9 @@ public class SagaExecutionTest {
 
     private void executeAndVerifyThatActionsWereExecuted(String requestData, Saga saga) {
         AtomicBoolean rollbackRecoveryRun = new AtomicBoolean(false);
-        MemorySagaLogInitializer sagaLogInitializer = new MemorySagaLogInitializer();
-        SagaLogPool sagaLogPool = sagaLogInitializer.initialize(Map.of());
+        ServiceLoader<SagaLogInitializer> loader = ServiceLoader.load(SagaLogInitializer.class);
+        SagaLogInitializer sagaLogInitializer = loader.stream().filter(c -> "no.ssb.sagalog.memory.MemorySagaLogInitializer".equals(c.type().getName())).findFirst().orElseThrow().get();
+        SagaLogPool sagaLogPool = sagaLogInitializer.initialize(sagaLogInitializer.configurationOptionsAndDefaults());
         SagaLog sagaLog = new SagaLog() {
             SagaLog delegate = sagaLogPool.connect("testng-main-thread");
 
