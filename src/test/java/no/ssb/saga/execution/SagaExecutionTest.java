@@ -10,6 +10,7 @@ import no.ssb.sagalog.SagaLogEntry;
 import no.ssb.sagalog.SagaLogEntryBuilder;
 import no.ssb.sagalog.SagaLogEntryId;
 import no.ssb.sagalog.SagaLogEntryType;
+import no.ssb.sagalog.SagaLogId;
 import no.ssb.sagalog.SagaLogInitializer;
 import no.ssb.sagalog.SagaLogPool;
 import org.testng.Assert;
@@ -69,7 +70,12 @@ public class SagaExecutionTest {
         SagaLogInitializer sagaLogInitializer = loader.stream().filter(c -> "no.ssb.sagalog.memory.MemorySagaLogInitializer".equals(c.type().getName())).findFirst().orElseThrow().get();
         SagaLogPool sagaLogPool = sagaLogInitializer.initialize(sagaLogInitializer.configurationOptionsAndDefaults());
         SagaLog sagaLog = new SagaLog() {
-            SagaLog delegate = sagaLogPool.connect("testng-main-thread");
+            SagaLog delegate = sagaLogPool.connect(new SagaLogId("testng-main-thread"));
+
+            @Override
+            public SagaLogId id() {
+                return new SagaLogId("wrapped-test-sagalog");
+            }
 
             @Override
             public CompletableFuture<SagaLogEntry> write(SagaLogEntryBuilder builder) {
