@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -85,7 +84,6 @@ public class SagaExecution {
                 sagaLog.write(sagaLog.builder().endSaga(executionId));
                 SagaHandoffResult result = new SagaHandoffResult(executionId);
                 completionFuture.complete(result);
-                onComplete.accept(result);
                 return null;
             }
             List<SagaLogEntry> sagaLogEntries = recoverySagaLogEntriesBySagaNodeId.get(ste.node.id);
@@ -111,18 +109,13 @@ public class SagaExecution {
                 if (!firstToAbort) {
                     return null; // More than one abort, let only first abort trigger rollback-recovery
                 }
-                SagaTraversalResult sagaTraversalResult;
-                try {
-                    sagaTraversalResult = futureTraversalResult.get();
-                } catch (InterruptedException | ExecutionException e1) {
-                    throw new RuntimeException(e1);
-                }
+                SagaTraversalResult sagaTraversalResult = futureTraversalResult.join();
 
                 executorService.submit(() -> {
                     // ensure we catch all saga-log entries of forward traversal before running recovery
                     sagaTraversalResult.waitForThreadWalksToComplete();
 
-                    rollbackRecovery(e, executionId, sagaInput, completionFuture, sagaTraversalResult.pendingWalks, sagaTraversalResult.futureThreadWalk, new ConcurrentHashMap<>(), onComplete);
+                    rollbackRecovery(e, executionId, sagaInput, completionFuture, sagaTraversalResult.pendingWalks, sagaTraversalResult.futureThreadWalk, new ConcurrentHashMap<>());
                 });
 
                 return null;
@@ -136,6 +129,15 @@ public class SagaExecution {
             return actionOutput;
         });
         futureTraversalResult.complete(traversalResult);
+
+        completionFuture.whenComplete((r, t) -> {
+            if (t == null) {
+                onComplete.accept(r);
+            } else {
+                onComplete.accept(new SagaHandoffResult(executionId, t));
+            }
+        });
+
         return new SagaHandoffControl(sagaInput, executionId, saga, sagaLog, adapterLoader, traversalResult, handoffFuture, completionFuture);
     }
 
@@ -145,8 +147,7 @@ public class SagaExecution {
                                   SelectableFuture<SagaHandoffResult> completionFuture,
                                   AtomicInteger pendingWalks,
                                   BlockingQueue<SelectableFuture<List<String>>> futureThreadWalk,
-                                  ConcurrentHashMap<String, SelectableFuture<SelectableFuture<Object>>> futureById,
-                                  Consumer<SagaHandoffResult> onComplete) {
+                                  ConcurrentHashMap<String, SelectableFuture<SelectableFuture<Object>>> futureById) {
         Map<String, List<SagaLogEntry>> sagaLogEntriesBySagaNodeId = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(executionId);
         SagaTraversal sagaTraversal = new SagaTraversal(executorService, saga);
         sagaTraversal.backward(null, completionFuture, pendingWalks, futureThreadWalk, futureById, ste -> {
@@ -155,10 +156,7 @@ public class SagaExecution {
             }
             if (Saga.ID_START.equals(ste.node.id)) {
                 sagaLog.write(sagaLog.builder().endSaga(executionId));
-                SagaHandoffResult result = new SagaHandoffResult(executionId);
                 completionFuture.completeExceptionally(exception);
-                // completionFuture.complete(result);
-                onComplete.accept(result);
                 return null;
             }
             SagaAdapter adapter = adapterLoader.load(ste.node);
