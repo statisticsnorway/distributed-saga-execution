@@ -144,7 +144,7 @@ public class SagaExecutionTest {
             }
         }
         Map<String, List<SagaLogEntry>> sagaLogEntriesByNodeId = sagaLog.getSnapshotOfSagaLogEntriesByNodeId(executionId);
-        sagaLog.truncate();
+        sagaLog.truncate().join();
 
         if (rollbackRecoveryRun.get()) {
 
