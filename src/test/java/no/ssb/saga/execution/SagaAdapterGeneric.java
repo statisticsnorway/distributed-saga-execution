@@ -17,7 +17,7 @@ public class SagaAdapterGeneric extends Adapter<Object> {
     }
 
     @Override
-    public Object executeAction(Object startInput, Map<SagaNode, Object> dependeesOutput) {
+    public Object executeAction(SagaNode sagaNode, Object startInput, Map<SagaNode, Object> dependeesOutput) {
         JSONObject result = new JSONObject();
         result.put("action", "Generic Action Execution");
         result.put("unique-id", UUID.randomUUID().toString());

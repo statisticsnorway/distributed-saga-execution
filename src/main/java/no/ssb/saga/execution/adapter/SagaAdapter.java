@@ -27,6 +27,7 @@ public interface SagaAdapter<OUTPUT> {
     String name();
 
     /**
+     * @param sagaNode        the sagaNode for which this action is invoked.
      * @param sagaInput       the original request data associated with this saga.
      * @param dependeesOutput the output from the execution of the dejpendees of the saga-node
      *                        represented by this adapter.
@@ -34,17 +35,18 @@ public interface SagaAdapter<OUTPUT> {
      * @throws AbortSagaException action implementation may choose to throw an AbortSagaException
      *                            in order to trigger a full saga rollback.
      */
-    OUTPUT executeAction(Object sagaInput, Map<SagaNode, Object> dependeesOutput) throws AbortSagaException;
+    OUTPUT executeAction(SagaNode sagaNode, Object sagaInput, Map<SagaNode, Object> dependeesOutput) throws AbortSagaException;
 
     /**
      * Execute the compensating action that this adapter implicitly represents using sagaInput.
      * Upon returning normally, it will be assumed that the compensating action was successfully
      * executed.
      *
+     * @param sagaNode     the sagaNode for which this compensating action is invoked.
      * @param sagaInput    the original request data associated with this saga.
      * @param actionOutput the output from executing the {@link #executeAction(Object, Map)} method.
      */
-    void executeCompensatingAction(Object sagaInput, OUTPUT actionOutput);
+    void executeCompensatingAction(SagaNode sagaNode, Object sagaInput, OUTPUT actionOutput);
 
     /**
      * @return a serializer than can be used to serialize and de-serialize any object output

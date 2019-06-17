@@ -101,7 +101,7 @@ public class SagaExecution {
             }
             Object actionOutput;
             try {
-                actionOutput = adapter.executeAction(sagaInput, ste.outputByNode);
+                actionOutput = adapter.executeAction(ste.node, sagaInput, ste.outputByNode);
 
             } catch (AbortSagaException e) {
                 boolean firstToAbort = sagaTraversal.stopTraversal();
@@ -180,11 +180,11 @@ public class SagaExecution {
                 // Unknown whether action was executed or not, execute it (possibly again)
                 // to ensure consistency and to update saga-log with end-action and output.
                 Map<SagaNode, Object> dependeesOutput = getDependeesOutputByNode(sagaLogEntriesBySagaNodeId, ste.node, adapter);
-                actionOutput = adapter.executeAction(sagaInput, dependeesOutput);
+                actionOutput = adapter.executeAction(ste.node, sagaInput, dependeesOutput);
                 String serializedActionOutput = adapter.serializer().serialize(actionOutput); // safe unchecked call
                 sagaLog.write(sagaLog.builder().endAction(executionId, ste.node.id, serializedActionOutput)).join();
             }
-            adapter.executeCompensatingAction(sagaInput, actionOutput); // safe unchecked call
+            adapter.executeCompensatingAction(ste.node, sagaInput, actionOutput); // safe unchecked call
             sagaLog.write(sagaLog.builder().compDone(executionId, ste.node.id)).join();
             return null; // no output from running compensating action.
         });
