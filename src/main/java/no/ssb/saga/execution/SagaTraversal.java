@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
-public class SagaTraversal {
+class SagaTraversal {
 
     private final SelectableThreadPoolExectutor executorService;
     private final Saga saga;
@@ -31,7 +31,7 @@ public class SagaTraversal {
     private final SelectableFuture<Object> stopSelectable = new SelectableFuture<>(() -> null);
     private final SelectableFuture<SelectableFuture<Object>> stopSelectableSelectable = new SelectableFuture<>(() -> null);
 
-    public SagaTraversal(SelectableThreadPoolExectutor executorService, Saga saga) {
+    SagaTraversal(SelectableThreadPoolExectutor executorService, Saga saga) {
         this.executorService = executorService;
         this.saga = saga;
     }
@@ -48,11 +48,11 @@ public class SagaTraversal {
         return firstToStop;
     }
 
-    public SagaTraversalResult forward(Function<SagaTraversalElement, Object> visit) {
+    SagaTraversalResult forward(Function<SagaTraversalElement, Object> visit) {
         return forward(null, null, visit);
     }
 
-    public SagaTraversalResult forward(
+    SagaTraversalResult forward(
             SelectableFuture<SagaHandoffResult> handoffFuture,
             SelectableFuture<SagaHandoffResult> completionFuture,
             Function<SagaTraversalElement, Object> visit) {
@@ -60,11 +60,11 @@ public class SagaTraversal {
         return traverse(true, startNode, handoffFuture, completionFuture, visit, new AtomicInteger(1), new LinkedBlockingQueue<>(), new ConcurrentHashMap<>());
     }
 
-    public SagaTraversalResult backward(Function<SagaTraversalElement, Object> visit) {
+    SagaTraversalResult backward(Function<SagaTraversalElement, Object> visit) {
         return backward(null, null, new AtomicInteger(1), new LinkedBlockingQueue<>(), new ConcurrentHashMap<>(), visit);
     }
 
-    public SagaTraversalResult backward(
+    SagaTraversalResult backward(
             SelectableFuture<SagaHandoffResult> handoffFuture,
             SelectableFuture<SagaHandoffResult> completionFuture,
             AtomicInteger pendingWalks,

@@ -14,6 +14,7 @@ import no.ssb.sagalog.SagaLogEntryType;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,6 +59,14 @@ public class SagaExecution {
      * @return
      */
     public SagaHandoffControl executeSaga(String executionId, Object sagaInput, boolean recovery, Consumer<SagaHandoffResult> onComplete) {
+        return executeSaga(executionId, sagaInput, recovery, onComplete,
+                c -> {
+                }, c -> {
+                }
+        );
+    }
+
+    public SagaHandoffControl executeSaga(String executionId, Object sagaInput, boolean recovery, Consumer<SagaHandoffResult> onComplete, Consumer<SagaExecutionTraversalContext> preAction, Consumer<SagaExecutionTraversalContext> postAction) {
         SelectableFuture<SagaHandoffResult> handoffFuture = new SelectableFuture<>(null);
         SelectableFuture<SagaHandoffResult> completionFuture = new SelectableFuture<>(null);
         SagaTraversal sagaTraversal = new SagaTraversal(executorService, saga);
@@ -70,6 +79,9 @@ public class SagaExecution {
         }
         SagaTraversalResult traversalResult = sagaTraversal.forward(handoffFuture, completionFuture, ste -> {
             SagaAdapter adapter = adapterLoader.load(ste.node);
+
+            preAction.accept(new SagaExecutionTraversalContext(ste.outputByNode, ste.ancestors, ste.node, adapter, null));
+
             if (Saga.ID_START.equals(ste.node.id)) {
                 if (!recovery) {
                     String serializedSagaInput = ofNullable(sagaInput)
@@ -78,12 +90,14 @@ public class SagaExecution {
                     sagaLog.write(sagaLog.builder().startSaga(executionId, saga.name, serializedSagaInput)).join();
                 }
                 handoffFuture.complete(new SagaHandoffResult(executionId));
+                postAction.accept(new SagaExecutionTraversalContext(ste.outputByNode, ste.ancestors, ste.node, adapter, null));
                 return null;
             }
             if (Saga.ID_END.equals(ste.node.id)) {
                 sagaLog.write(sagaLog.builder().endSaga(executionId)).join();
                 SagaHandoffResult result = new SagaHandoffResult(executionId);
                 completionFuture.complete(result);
+                postAction.accept(new SagaExecutionTraversalContext(ste.outputByNode, ste.ancestors, ste.node, adapter, null));
                 return null;
             }
             List<SagaLogEntry> sagaLogEntries = recoverySagaLogEntriesBySagaNodeId.get(ste.node.id);
@@ -92,12 +106,15 @@ public class SagaExecution {
             }
             if (sagaLogEntries != null && sagaLogEntries.stream().anyMatch(e -> SagaLogEntryType.End == e.getEntryType())) {
                 // action was already executed, return output from saga-log
-                return sagaLogEntries.stream()
+                Optional<String> optionalSerializedOutput = sagaLogEntries.stream()
                         .filter(e -> SagaLogEntryType.End == e.getEntryType())
                         .findFirst()
-                        .map(sle -> sle.getJsonData())
+                        .map(sle -> sle.getJsonData());
+                postAction.accept(new SagaExecutionTraversalContext(ste.outputByNode, ste.ancestors, ste.node, adapter, optionalSerializedOutput.orElse(null)));
+                Object output = optionalSerializedOutput
                         .map(jsonData -> adapter.serializer().deserialize(jsonData))
                         .orElse(null);
+                return output;
             }
             Object actionOutput;
             try {
@@ -125,6 +142,8 @@ public class SagaExecution {
                     .map(o -> adapter.serializer().serialize(o)) // safe unchecked call
                     .orElse(null);
             sagaLog.write(sagaLog.builder().endAction(executionId, ste.node.id, serializedActionOutput)).join();
+
+            postAction.accept(new SagaExecutionTraversalContext(ste.outputByNode, ste.ancestors, ste.node, adapter, serializedActionOutput));
 
             return actionOutput;
         });
