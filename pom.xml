@@ -4,7 +4,7 @@
 
     <groupId>no.ssb.saga</groupId>
     <artifactId>distributed-saga-execution</artifactId>
-    <version>0.7</version>
+    <version>0.8-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Distributed Saga Execution</name>
@@ -39,7 +39,7 @@
         <connection>scm:git:git://github.com/statisticsnorway/distributed-saga-execution.git</connection>
         <developerConnection>scm:git:git@github.com:statisticsnorway/distributed-saga-execution.git</developerConnection>
         <url>https://github.com/statisticsnorway/distributed-saga-execution/tree/master</url>
-        <tag>v0.7</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <distributionManagement>
