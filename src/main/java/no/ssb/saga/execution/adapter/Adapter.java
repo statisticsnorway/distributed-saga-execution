@@ -36,12 +36,12 @@ public class Adapter<O> implements SagaAdapter<O> {
     }
 
     @Override
-    public O executeAction(Object sagaInput, Map<SagaNode, Object> dependeesOutput) {
+    public O executeAction(SagaNode sagaNode, Object sagaInput, Map<SagaNode, Object> dependeesOutput) {
         return action.apply(sagaInput, dependeesOutput);
     }
 
     @Override
-    public void executeCompensatingAction(Object sagaInput, O actionOutput) {
+    public void executeCompensatingAction(SagaNode sagaNode, Object sagaInput, O actionOutput) {
         compensatingConsumer.accept(sagaInput, actionOutput);
     }
 

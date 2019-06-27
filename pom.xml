@@ -4,7 +4,7 @@
 
     <groupId>no.ssb.saga</groupId>
     <artifactId>distributed-saga-execution</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.9-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Distributed Saga Execution</name>
@@ -56,9 +56,14 @@
             <version>0.1</version>
         </dependency>
         <dependency>
+            <groupId>no.ssb.saga</groupId>
+            <artifactId>sagalog-api</artifactId>
+            <version>0.5</version>
+        </dependency>
+        <dependency>
             <groupId>no.ssb.concurrent.futureselector</groupId>
             <artifactId>future-selector</artifactId>
-            <version>0.1</version>
+            <version>0.2</version>
         </dependency>
         <dependency>
             <groupId>org.testng</groupId>
@@ -95,7 +100,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>3.0.1</version>
+                        <version>3.1.0</version>
                         <configuration>
                             <encoding>UTF-8</encoding>
                             <additionalOptions>-Xdoclint:none</additionalOptions>
@@ -181,7 +186,7 @@
                 <configuration>
                     <serverId>ossrh</serverId>
                     <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-                    <autoReleaseAfterClose>false</autoReleaseAfterClose>
+                    <autoReleaseAfterClose>true</autoReleaseAfterClose>
                 </configuration>
             </plugin>
             <plugin>
