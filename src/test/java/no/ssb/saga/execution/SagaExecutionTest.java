@@ -70,11 +70,15 @@ public class SagaExecutionTest {
         SagaLogInitializer sagaLogInitializer = loader.stream().filter(c -> "no.ssb.sagalog.memory.MemorySagaLogInitializer".equals(c.type().getName())).findFirst().orElseThrow().get();
         SagaLogPool sagaLogPool = sagaLogInitializer.initialize(sagaLogInitializer.configurationOptionsAndDefaults());
         SagaLog sagaLog = new SagaLog() {
-            SagaLog delegate = sagaLogPool.connect(new SagaLogId("testng-main-thread"));
+            @Override
+            public void close() {
+            }
+
+            SagaLog delegate = sagaLogPool.connect(sagaLogPool.idFor(sagaLogPool.getLocalClusterInstanceId(), "testng-main-thread"));
 
             @Override
             public SagaLogId id() {
-                return new SagaLogId("wrapped-test-sagalog");
+                return delegate.id();
             }
 
             @Override
